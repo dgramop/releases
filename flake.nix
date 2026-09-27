@@ -4,11 +4,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-25.11";
 
-    rg552-nixos-main.url = "github:dgramop/rg552-nixos/main";
-    rg552-nixos-main.inputs.nixpkgs.follows = "nixpkgs";
-
-    rg552-nixos-stable.url = "github:dgramop/rg552-nixos/stable";
-    rg552-nixos-stable.inputs.nixpkgs.follows = "nixpkgs";
+    rg552-nixos-2026_09_26.url = "github:dgramop/rg552-nixos/releases/2026_09_26";
   };
 
   outputs = { self, nixpkgs, ... }@inputs:
@@ -22,8 +18,7 @@
     # want, then add an entry here. `nix flake lock --update-input <name>` moves
     # a pointer without disturbing the others.
     manifest = {
-      "rg552-sd/main"   = inputs.rg552-nixos-main.packages.${system}.default;
-      "rg552-sd/stable" = inputs.rg552-nixos-stable.packages.${system}.default;
+      "rg552-sd/2026_09_26"   = inputs.rg552-nixos-main.packages.${system}.default;
     };
   in {
     packages.${system} = {
