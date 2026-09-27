@@ -5,23 +5,26 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-25.11";
 
     rg552-nixos-2026_09_26.url = "github:dgramop/rg552-nixos/releases/2026_09_26";
+    rg552-nixos-2026_09_26.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = { self, nixpkgs, ... }@inputs:
   let
-    system = "aarch64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
+    supportedSystems = [ "aarch64-linux" "x86_64-linux" "aarch64-darwin" "x86_64-darwin" ];
+    forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems f;
 
     # The manifest of live versions on dedi. Keys become paths inside the
-    # deployed profile (e.g. /nix/var/nix/profiles/dgramop-releases/rg552-sd/main).
-    # To add a version: declare a new input above pinning the ref/tag/rev you
-    # want, then add an entry here. `nix flake lock --update-input <name>` moves
-    # a pointer without disturbing the others.
+    # deployed linkFarm (e.g. /nix/var/nix/gcroots/dgramop-releases/rg552-sd/2026_09_26).
+    # Each entry pins to a specific target system — the linkFarm just holds
+    # symlinks, so it can be assembled on any host that has (or can substitute)
+    # the referenced store paths.
     manifest = {
-      "rg552-sd/2026_09_26"   = inputs.rg552-nixos-main.packages.${system}.default;
+      "rg552-sd/2026_09_26" = inputs.rg552-nixos-2026_09_26.packages.aarch64-linux.default;
     };
   in {
-    packages.${system} = {
+    packages = forAllSystems (system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
       default = pkgs.linkFarm "dgramop-releases" (
         pkgs.lib.mapAttrsToList (name: path: { inherit name path; }) manifest
       );
@@ -31,6 +34,6 @@
         runtimeInputs = [ pkgs.openssh ];
         text = builtins.readFile ./scripts/push-releases.sh;
       };
-    };
+    });
   };
 }
