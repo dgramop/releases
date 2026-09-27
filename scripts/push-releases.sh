@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Build the releases flake locally, copy the resulting closure to
-# dgramop-dedi, and pin it as a GC root under /nix/var/nix/gcroots.
+# Build the releases flake locally, copy the resulting closure to a
+# target host, and pin it as a GC root under /nix/var/nix/gcroots.
 #
-# Push model: dedi never fetches or builds. It doesn't need substituter
-# access to your builders or outbound network egress for Nix. The
-# tradeoff is that the caller has to be able to build the flake, either
-# natively or via a remote builder.
+# Push model: the target never fetches or builds. It doesn't need
+# substituter access to your builders or outbound network egress for
+# Nix. The tradeoff is that the caller has to be able to build the
+# flake, either natively or via a remote builder.
 #
 # Pinning model: a plain gcroot symlink, not a nix profile. The
 # manifest in flake.nix is the sole source of truth for what's kept
@@ -15,25 +15,57 @@
 
 set -euo pipefail
 
-flake_ref="${1:-github:dgramop/releases}"
-target_host="${TARGET_HOST:-dgramop-dedi}"
-gcroot_path="${GCROOT_PATH:-/nix/var/nix/gcroots/dgramop-releases}"
+flake_ref="github:dgramop/releases"
+target_host=""
+gcroot_path="/nix/var/nix/gcroots/dgramop-releases"
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+usage() {
   cat <<EOF
-Usage: push-releases [FLAKE_REF]
+Usage: push-releases --target-host HOST [OPTIONS]
 
-Arguments:
-  FLAKE_REF        Flake reference to build and deploy.
-                   Default: github:dgramop/releases
-                   Use "." or "path:..." to deploy a local checkout.
+Required:
+  --target-host HOST     SSH host to deploy to (user@host form accepted).
 
-Environment:
-  TARGET_HOST      SSH host for the target (default: dgramop-dedi).
-  GCROOT_PATH      GC root symlink path on the target
-                   (default: /nix/var/nix/gcroots/dgramop-releases).
+Options:
+  --flake REF            Flake reference to build.
+                         Default: $flake_ref
+                         Use "." or "path:..." for a local checkout.
+  --gcroot PATH          GC root symlink path on the target.
+                         Default: $gcroot_path
+  -h, --help             Show this help.
 EOF
-  exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --target-host)
+      target_host="${2:?--target-host requires a value}"
+      shift 2
+      ;;
+    --flake)
+      flake_ref="${2:?--flake requires a value}"
+      shift 2
+      ;;
+    --gcroot)
+      gcroot_path="${2:?--gcroot requires a value}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$target_host" ]]; then
+  echo "error: --target-host is required" >&2
+  usage >&2
+  exit 2
 fi
 
 echo "==> Building $flake_ref"
